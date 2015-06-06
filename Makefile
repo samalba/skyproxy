@@ -9,9 +9,9 @@ GODEP_BIN := $(GOPATH)/bin/godep
 GODEP := $(shell [ -x $(GODEP_BIN) ] && echo $(GODEP_BIN) || echo '')
 
 validate:
-	find . -type d -not -path '*/.*' -exec go fmt {} \;
+	find . -type d -not -path '*/.*' -not -path './Godeps*' -exec go fmt {} \;
 	$(if $(GOLINT), , $(error Please install golint: go get -u github.com/golang/lint/golint))
-	find . -type d -not -path '*/.*' -exec $(GOLINT) {} \;
+	find . -type d -not -path '*/.*' -not -path './Godeps*' -exec $(GOLINT) {} \;
 
 test:
 	go test
