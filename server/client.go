@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 )
 
@@ -51,4 +52,5 @@ func NewClient(conn net.Conn) (*Client, error) {
 }
 
 func (c *Client) Serve() {
+	log.Printf("New Client, header: %#v", c.header)
 }
