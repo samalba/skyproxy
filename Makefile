@@ -10,12 +10,14 @@ GODEP := $(shell [ -x $(GODEP_BIN) ] && echo $(GODEP_BIN) || echo '')
 
 validate:
 	find . -type d -not -path '*/.*' -not -path './Godeps*' -exec go fmt {} \;
-	$(if $(GOLINT), , $(error Please install golint: go get -u github.com/golang/lint/golint))
+	$(if $(GOLINT), , \
+		$(error Please install golint: go get -u github.com/golang/lint/golint))
 	find . -type d -not -path '*/.*' -not -path './Godeps*' -exec $(GOLINT) {} \;
 
 test:
 	go test
 
 build:
-	$(if $(GODEP), , $(error Please install godep: go get -u github.com/tools/godep))
+	$(if $(GODEP), , \
+		$(error Please install godep: go get -u github.com/tools/godep))
 	$(GODEP) go build
