@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+
+	"github.com/samalba/skyproxy/common"
 )
 
 const (
@@ -17,8 +19,8 @@ const (
 
 // Client handles the lifetime of a Client connecting to the Server
 type Client struct {
-	conn   *ClientConn
-	header map[string]string
+	conn   *common.ClientConn
+	header common.ClientHeader
 }
 
 func (c *Client) readHeader() error {
@@ -38,19 +40,20 @@ func (c *Client) readHeader() error {
 	if size < index {
 		return fmt.Errorf("Cannot read full header")
 	}
-	c.header = make(map[string]string)
 	if err := json.Unmarshal(rawHeader, &c.header); err != nil {
 		return err
 	}
 	return nil
 }
 
+// NewClient creates a client context when there is a new connection
 func NewClient(conn net.Conn) (*Client, error) {
-	client := &Client{conn: NewClientConn(conn)}
+	client := &Client{conn: common.NewClientConn(conn)}
 	client.readHeader()
 	return client, nil
 }
 
+// Serve serves a new client after the intial handshake
 func (c *Client) Serve() {
 	log.Printf("New Client, header: %#v", c.header)
 }

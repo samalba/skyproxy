@@ -1,22 +1,24 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
+	"github.com/samalba/skyproxy/client"
 	"github.com/samalba/skyproxy/server"
 
 	"github.com/codegangsta/cli"
 )
 
-func globalFlags() []cli.Flag {
-	return []cli.Flag{
-		cli.StringFlag{
-			Name:  "address",
-			Value: "0.0.0.0:4242",
-			Usage: "Address to connect to (or to listen to if launched with `serve' option)",
-		},
+func validateArgs(c *cli.Context, args []string) error {
+	for _, arg := range args {
+		if c.String(arg) == "" {
+			fmt.Println("Missing argument:", arg)
+			os.Exit(1)
+		}
 	}
+	return nil
 }
 
 func globalCommands() []cli.Command {
@@ -25,12 +27,55 @@ func globalCommands() []cli.Command {
 			Name:   "serve",
 			Usage:  "Start a server",
 			Action: runServer,
+			Before: func(c *cli.Context) error {
+				return validateArgs(c, []string{"address", "http-address"})
+			},
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "address",
+					Value: "0.0.0.0:4242",
+					Usage: "Address to listen on (for receiving skyproxy clients)",
+				},
+				cli.StringFlag{
+					Name:  "http-address",
+					Value: "0.0.0.0:80",
+					Usage: "Address to listen on (for receiving HTTP traffic)",
+				},
+			},
+		},
+		{
+			Name:   "connect",
+			Usage:  "Connects to a local receiver",
+			Action: runClient,
+			Before: func(c *cli.Context) error {
+				return validateArgs(c, []string{"server", "receiver", "http-host"})
+			},
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "server",
+					Value: "",
+					Usage: "Remote skyproxy server address (ex: 0.0.0.0:1080)",
+				},
+				cli.StringFlag{
+					Name:  "receiver",
+					Value: "",
+					Usage: "Local HTTP receiver to direct the traffic to (ex: localhost:8080)",
+				},
+				cli.StringFlag{
+					Name:  "http-host",
+					Value: "",
+					Usage: "HTTP host to announce (ex: my.website.tld)",
+				},
+			},
 		},
 	}
 }
 
 func runClient(c *cli.Context) {
-	log.Println("TODO")
+	log.Println(c.Args().Get(1))
+	httpHost := "jose"
+	client := &client.Client{HTTPHost: httpHost}
+	client.Connect(c.String("address"))
 }
 
 func runServer(c *cli.Context) {
@@ -47,8 +92,6 @@ func main() {
 	app.Name = "skyproxy"
 	app.Version = "0.1.0"
 	app.Usage = "Reverse tunnel HTTP proxy"
-	app.Flags = globalFlags()
 	app.Commands = globalCommands()
-	app.Action = runClient
 	app.Run(os.Args)
 }
