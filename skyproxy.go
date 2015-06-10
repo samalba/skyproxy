@@ -14,7 +14,7 @@ import (
 func validateArgs(c *cli.Context, args []string) error {
 	for _, arg := range args {
 		if c.String(arg) == "" {
-			fmt.Println("Missing argument:", arg)
+			fmt.Printf("Missing argument: --%s\n", arg)
 			os.Exit(1)
 		}
 	}
@@ -72,10 +72,17 @@ func globalCommands() []cli.Command {
 }
 
 func runClient(c *cli.Context) {
-	log.Println(c.Args().Get(1))
-	httpHost := "jose"
+	server := c.String("server")
+	receiver := c.String("receiver")
+	httpHost := c.String("http-host")
+	log.Printf("Connecting to server: %s", server)
+	log.Printf("Registering HTTP Host: %s", httpHost)
 	client := &client.Client{HTTPHost: httpHost}
-	client.Connect(c.String("address"))
+	if err := client.Connect(server); err != nil {
+		log.Fatalf("Cannot connect: %s", err)
+	}
+	log.Printf("Connection established, forwarding the traffic to: %s", receiver)
+	client.Forward()
 }
 
 func runServer(c *cli.Context) {

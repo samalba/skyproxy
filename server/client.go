@@ -1,20 +1,12 @@
 package server
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net"
 
 	"github.com/samalba/skyproxy/common"
-)
-
-const (
-	// If a header goes beyond this size, the client gets dropped
-	maxHeaderSize = 4096
-	// Marks the end of a header
-	headerSeparator = "\n\n"
 )
 
 // Client handles the lifetime of a Client connecting to the Server
@@ -24,21 +16,24 @@ type Client struct {
 }
 
 func (c *Client) readHeader() error {
-	rawHeader, err := c.conn.Peek(maxHeaderSize)
-	if err != nil {
-		return err
-	}
-	index := bytes.Index(rawHeader, []byte("\n\n"))
-	if index < 0 {
-		return fmt.Errorf("Cannot reach the final size of a header")
-	}
-	index += 2
-	size, err := c.conn.Read(rawHeader[:index])
-	if err != nil {
-		return err
-	}
-	if size < index {
-		return fmt.Errorf("Cannot read full header")
+	var rawHeader []byte
+	// The header ends with "\n\n"
+	for {
+		buf, err := c.conn.ReadSlice('\n')
+		if err != nil {
+			return err
+		}
+		rawHeader = append(rawHeader, buf...)
+		b, err := c.conn.ReadByte()
+		if err != nil {
+			return err
+		}
+		if b == '\n' {
+			// We reached the end of the header
+			break
+		}
+		// We are not at the end, add the last read byte to the buffer
+		rawHeader = append(rawHeader, b)
 	}
 	if err := json.Unmarshal(rawHeader, &c.header); err != nil {
 		return err
@@ -49,7 +44,9 @@ func (c *Client) readHeader() error {
 // NewClient creates a client context when there is a new connection
 func NewClient(conn net.Conn) (*Client, error) {
 	client := &Client{conn: common.NewClientConn(conn)}
-	client.readHeader()
+	if err := client.readHeader(); err != nil {
+		return nil, fmt.Errorf("Cannot read client header: %s", err)
+	}
 	return client, nil
 }
 

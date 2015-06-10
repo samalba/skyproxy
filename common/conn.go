@@ -27,3 +27,13 @@ func (c *ClientConn) Peek(n int) ([]byte, error) {
 func (c *ClientConn) Read(p []byte) (int, error) {
 	return c.bufr.Read(p)
 }
+
+// ReadSlice reads from the buffer until `delim'
+func (c *ClientConn) ReadSlice(delim byte) ([]byte, error) {
+	return c.bufr.ReadSlice(delim)
+}
+
+// ReadByte reads one byte from the buffer
+func (c *ClientConn) ReadByte() (byte, error) {
+	return c.bufr.ReadByte()
+}

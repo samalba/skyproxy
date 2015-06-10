@@ -16,6 +16,7 @@ func (s *Server) ListenForClients() error {
 	if err != nil {
 		return err
 	}
+	log.Printf("Listening on %s", s.ListenAddress)
 	defer listen.Close()
 	for {
 		conn, err := listen.Accept()
@@ -23,6 +24,7 @@ func (s *Server) ListenForClients() error {
 			log.Println(err)
 			continue
 		}
+		// Handles each new client in a routine
 		go func() {
 			client, err := NewClient(conn)
 			if err != nil {
