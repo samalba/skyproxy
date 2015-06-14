@@ -10,9 +10,9 @@ import (
 
 // HTTPClient is the context of a client making an HTTP request
 type HTTPClient struct {
-	conn     *common.ClientConn
+	conn         *common.ClientConn
 	headerBuffer []byte
-	HTTPHost string
+	HTTPHost     string
 }
 
 // searchString searches for a pattern inside a buffer and return the consumed buffer
@@ -43,7 +43,7 @@ func searchString(bufr *common.ClientConn, pattern string) ([]byte, error) {
 	}
 }
 
-func (c *HTTPClient) readHTTPHost() (string, error) {
+func (c *HTTPClient) readHTTPHost() error {
 	buf, err := searchString(c.conn, "Host: ")
 	if err != nil {
 		return err
@@ -65,4 +65,14 @@ func NewHTTPClient(conn net.Conn) (*HTTPClient, error) {
 		return nil, fmt.Errorf("Cannot parse client host header: %s", err)
 	}
 	return c, nil
+}
+
+// Read reads data from the HTTP client socket
+func (c *HTTPClient) Read(buf []byte) (int, error) {
+	return c.conn.Read(buf)
+}
+
+// Write writes data to the HTTP client socket
+func (c *HTTPClient) Write(buf []byte) (int, error) {
+	return c.conn.Write(buf)
 }

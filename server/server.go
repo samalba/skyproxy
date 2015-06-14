@@ -113,6 +113,23 @@ func (s *Server) ListenForHTTP() error {
 			continue
 		}
 		log.Printf("HTTP Client for host: %s", httpClient.HTTPHost)
+		go s.forwardTraffic(httpClient)
 	}
 	return nil
+}
+
+// forwardTraffic reads data from HTTP cients and send it to receivers (and vice versa)
+func (s *Server) forwardTraffic(httpClient *HTTPClient) {
+	var buf = make([]byte, 4096)
+	for {
+		numBytes, err := httpClient.Read(buf)
+		if err != nil {
+			log.Printf("HTTP Client dropped: %s", err)
+			return
+		}
+		//TODO: 1. select a client from clientList (implement LB policy)
+		//TODO: 2. send data back to receiver
+		//TODO: 3. handle the traffic back in a routine
+		log.Printf("DEBUG: received %d bytes", numBytes)
+	}
 }
