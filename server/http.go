@@ -15,7 +15,7 @@ type HTTPClient struct {
 	HTTPHost     string
 }
 
-// searchString searches for a pattern inside a buffer and return the consumed buffer
+// searchString searches for a pattern inside a buffer and returns the consumed buffer
 func searchString(bufr *common.ClientConn, pattern string) ([]byte, error) {
 	var read []byte
 	for {

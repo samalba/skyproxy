@@ -13,6 +13,7 @@ validate:
 	$(if $(GOLINT), , \
 		$(error Please install golint: go get -u github.com/golang/lint/golint))
 	find . -type d -not -path '*/.*' -not -path './Godeps*' -exec $(GOLINT) {} \;
+	find . -type d -not -path '*/.*' -not -path './Godeps*' -exec go vet {} \;
 
 test:
 	go test
