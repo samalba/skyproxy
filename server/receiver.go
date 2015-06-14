@@ -15,26 +15,11 @@ type Receiver struct {
 }
 
 func (r *Receiver) readHeader() error {
-	var rawHeader []byte
-	// The header ends with "\n\n"
-	for {
-		buf, err := r.conn.ReadSlice('\n')
-		if err != nil {
-			return err
-		}
-		rawHeader = append(rawHeader, buf...)
-		b, err := r.conn.ReadByte()
-		if err != nil {
-			return err
-		}
-		if b == '\n' {
-			// We reached the end of the header
-			break
-		}
-		// We are not at the end, add the last read byte to the buffer
-		rawHeader = append(rawHeader, b)
+	buf, err := searchString(r.conn, "\n\n")
+	if err != nil {
+		return err
 	}
-	if err := json.Unmarshal(rawHeader, &r.header); err != nil {
+	if err := json.Unmarshal(buf, &r.header); err != nil {
 		return err
 	}
 	return nil

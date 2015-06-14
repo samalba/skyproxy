@@ -107,7 +107,12 @@ func (s *Server) ListenForHTTP() error {
 			log.Println(err)
 			continue
 		}
-		client := NewHTTPClient(conn)
+		httpClient, err := NewHTTPClient(conn)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		log.Printf("HTTP Client for host: %s", httpClient.HTTPHost)
 	}
 	return nil
 }

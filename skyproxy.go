@@ -88,7 +88,7 @@ func runClient(c *cli.Context) {
 func runServer(c *cli.Context) {
 	serv := server.NewServer(c.String("address"), c.String("http-address"))
 	// Listen for skyproxy clients
-	func() {
+	go func() {
 		if err := serv.ListenForReceivers(); err != nil {
 			log.Fatal(err)
 		}
