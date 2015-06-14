@@ -71,7 +71,7 @@ func (s *Server) ListenForReceivers() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Listening on %s", s.ListenAddress)
+	log.Printf("Listening for receivers on %s", s.ListenAddress)
 	defer listen.Close()
 	go s.manageReceiverList()
 	for {
@@ -95,5 +95,19 @@ func (s *Server) ListenForReceivers() error {
 
 // ListenForHTTP listens for HTTP traffic
 func (s *Server) ListenForHTTP() error {
+	listen, err := net.Listen("tcp", s.ListenHTTPAddress)
+	if err != nil {
+		return err
+	}
+	log.Printf("Listening for HTTP on %s", s.ListenHTTPAddress)
+	defer listen.Close()
+	for {
+		conn, err := listen.Accept()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		client := NewHTTPClient(conn)
+	}
 	return nil
 }
