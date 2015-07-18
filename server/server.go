@@ -2,7 +2,9 @@ package server
 
 import (
 	"log"
+	"math/rand"
 	"net"
+	"time"
 )
 
 // Server context
@@ -10,11 +12,12 @@ type Server struct {
 	ListenAddress     string
 	ListenHTTPAddress string
 	receiverList      map[string][]*Receiver
-
-	numReceivers int
-	receiverIn   chan *Receiver
-	receiverOut  chan *Receiver
+	numReceivers      int
+	receiverIn        chan *Receiver
+	receiverOut       chan *Receiver
 }
+
+var random *rand.Rand
 
 // NewServer is usually called once to create the server context
 func NewServer(address, httpAddress string) *Server {
@@ -23,6 +26,8 @@ func NewServer(address, httpAddress string) *Server {
 	s.numReceivers = 0
 	s.receiverIn = make(chan *Receiver, 10)
 	s.receiverOut = make(chan *Receiver, 10)
+	// init rand seed
+	random = rand.New(rand.NewSource(time.Now().UnixNano()))
 	return s
 }
 
@@ -113,23 +118,58 @@ func (s *Server) ListenForHTTP() error {
 			continue
 		}
 		log.Printf("HTTP Client for host: %s", httpClient.HTTPHost)
+		//FIXME: send the http header buffer to the receiver
 		go s.forwardTraffic(httpClient)
 	}
-	return nil
 }
 
 // forwardTraffic reads data from HTTP cients and send it to receivers (and vice versa)
 func (s *Server) forwardTraffic(httpClient *HTTPClient) {
+	receiverList, exists := s.receiverList[httpClient.HTTPHost]
+	if !exists {
+		log.Printf("There is no Receiver register for the HTTP host: %s", httpClient.HTTPHost)
+		return
+	}
+	// Pick a receiver randomly
+	idx := random.Intn(len(receiverList))
+	receiver := receiverList[idx]
+	go func() {
+		var buf = make([]byte, 4096)
+		// Sending traffic back from the Receiver to the HTTP Client
+		for {
+			log.Println("Reading from Receiver...")
+			nReadBytes, err := receiver.Read(buf)
+			if err != nil {
+				log.Printf("Cannot read from the Receiver: %s", err)
+				return
+			}
+			nWrittenBytes, err := httpClient.Write(buf[:nReadBytes])
+			if err != nil {
+				log.Printf("Cannot write to the HTTP Client: %s", err)
+				return
+			}
+			if nReadBytes != nWrittenBytes {
+				log.Printf("Unable to forward all the data from the Receiver to the HTTP Client (received %d bytes, forwarded %d bytes)", nReadBytes, nWrittenBytes)
+			}
+		}
+	}()
+	// Sending traffic from the HTTP Client to the Receiver
 	var buf = make([]byte, 4096)
 	for {
-		numBytes, err := httpClient.Read(buf)
+		log.Println("Reading from HTTP Client...")
+		nReadBytes, err := httpClient.Read(buf)
 		if err != nil {
-			log.Printf("HTTP Client dropped: %s", err)
+			log.Printf("Cannot read from the HTTP Client: %s", err)
 			return
 		}
-		//TODO: 1. select a client from clientList (implement LB policy)
-		//TODO: 2. send data back to receiver
-		//TODO: 3. handle the traffic back in a routine
-		log.Printf("DEBUG: received %d bytes", numBytes)
+		nWrittenBytes, err := receiver.Write(buf[:nReadBytes])
+		if err != nil {
+			log.Printf("Cannot write to the Receiver: %s", err)
+			return
+		}
+		if nReadBytes != nWrittenBytes {
+			log.Printf("Unable to forward all the data from the HTTP Client to the Receiver (received %d bytes, forwarded %d bytes)", nReadBytes, nWrittenBytes)
+		}
+		log.Printf("nReadBytes = %d; nWrittenBytes = %d\n", nReadBytes, nWrittenBytes)
 	}
 }
