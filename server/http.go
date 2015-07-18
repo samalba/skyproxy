@@ -69,6 +69,12 @@ func NewHTTPClient(conn net.Conn) (*HTTPClient, error) {
 
 // Read reads data from the HTTP client socket
 func (c *HTTPClient) Read(buf []byte) (int, error) {
+	if len(c.headerBuffer) > 0 {
+		// There are remaining bytes from the header parsing, return them instead of reading more data
+		n := copy(buf, c.headerBuffer)
+		c.headerBuffer = c.headerBuffer[n:]
+		return n, nil
+	}
 	return c.conn.Read(buf)
 }
 
