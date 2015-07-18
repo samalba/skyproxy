@@ -33,3 +33,13 @@ func NewReceiver(conn net.Conn) (*Receiver, error) {
 	}
 	return r, nil
 }
+
+// Read reads from the Receiver's socket
+func (r *Receiver) Read(p []byte) (int, error) {
+	return r.conn.Read(p)
+}
+
+// Write writes to the Receiver's socket
+func (r *Receiver) Write(b []byte) (int, error) {
+	return r.conn.Write(b)
+}
