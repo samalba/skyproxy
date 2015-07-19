@@ -1,6 +1,7 @@
 package server
 
 import (
+	"io"
 	"log"
 	"math/rand"
 	"net"
@@ -127,49 +128,26 @@ func (s *Server) ListenForHTTP() error {
 func (s *Server) forwardTraffic(httpClient *HTTPClient) {
 	receiverList, exists := s.receiverList[httpClient.HTTPHost]
 	if !exists {
-		log.Printf("There is no Receiver register for the HTTP host: %s", httpClient.HTTPHost)
+		log.Printf("[server] There is no Receiver register for the HTTP host: %s", httpClient.HTTPHost)
 		return
 	}
 	// Pick a receiver randomly
 	idx := random.Intn(len(receiverList))
 	receiver := receiverList[idx]
 	go func() {
-		var buf = make([]byte, 4096)
 		// Sending traffic back from the Receiver to the HTTP Client
-		for {
-			log.Println("Reading from Receiver...")
-			nReadBytes, err := receiver.Read(buf)
-			if err != nil {
-				log.Printf("Cannot read from the Receiver: %s", err)
-				return
-			}
-			nWrittenBytes, err := httpClient.Write(buf[:nReadBytes])
-			if err != nil {
-				log.Printf("Cannot write to the HTTP Client: %s", err)
-				return
-			}
-			if nReadBytes != nWrittenBytes {
-				log.Printf("Unable to forward all the data from the Receiver to the HTTP Client (received %d bytes, forwarded %d bytes)", nReadBytes, nWrittenBytes)
-			}
+		nWrittenBytes, err := io.Copy(receiver, httpClient)
+		if err != nil {
+			log.Printf("[server] Cannot forward data from the Receiver to the HTTP Client: %s", err)
+			return
 		}
+		log.Printf("[server] Receiver -> HTTP Client: %d bytes", nWrittenBytes)
 	}()
 	// Sending traffic from the HTTP Client to the Receiver
-	var buf = make([]byte, 4096)
-	for {
-		log.Println("Reading from HTTP Client...")
-		nReadBytes, err := httpClient.Read(buf)
-		if err != nil {
-			log.Printf("Cannot read from the HTTP Client: %s", err)
-			return
-		}
-		nWrittenBytes, err := receiver.Write(buf[:nReadBytes])
-		if err != nil {
-			log.Printf("Cannot write to the Receiver: %s", err)
-			return
-		}
-		if nReadBytes != nWrittenBytes {
-			log.Printf("Unable to forward all the data from the HTTP Client to the Receiver (received %d bytes, forwarded %d bytes)", nReadBytes, nWrittenBytes)
-		}
-		log.Printf("nReadBytes = %d; nWrittenBytes = %d\n", nReadBytes, nWrittenBytes)
+	nWrittenBytes, err := io.Copy(httpClient, receiver)
+	if err != nil {
+		log.Printf("[server] Cannot forward data from the HTTPClient to the Receiver: %s", err)
+		return
 	}
+	log.Printf("[server] HTTP Client -> Receiver: %d bytes", nWrittenBytes)
 }
