@@ -3,16 +3,17 @@ package client
 import (
 	"encoding/json"
 	"io"
+	"log"
 	"net"
-	"os"
 
 	"github.com/samalba/skyproxy/common"
 )
 
 // Client handles the client connection
 type Client struct {
-	HTTPHost   string
-	serverConn *common.ClientConn
+	HTTPHost     string
+	serverConn   *common.ClientConn
+	receiverConn *common.ClientConn
 }
 
 func (c *Client) sendHeader() error {
@@ -46,10 +47,31 @@ func (c *Client) Connect(address string) error {
 }
 
 // ConnectHTTPReceiver connects to a local receiver
-func (c *Client) ConnectHTTPReceiver(address string) {
+func (c *Client) ConnectHTTPReceiver(address string) error {
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		return err
+	}
+	c.receiverConn = common.NewClientConn(conn)
+	return nil
 }
 
-// Forward reads data from the Server and transfer them to the Receiver
+// Forward reads data from the Skyproxy server and send it to the receiver (and vice versa)
 func (c *Client) Forward() {
-	io.Copy(c.serverConn, os.Stdout)
+	go func() {
+		// Sending traffic back from the Receiver to the Skyproxy server
+		nWrittenBytes, err := io.Copy(c.receiverConn, c.serverConn)
+		if err != nil {
+			log.Printf("[client] Cannot forward data from the Receiver to the Skyproxy server: %s", err)
+			return
+		}
+		log.Printf("[client] Receiver -> Skyproxy server: %d bytes", nWrittenBytes)
+	}()
+	// Sending traffic from the Skyproxy server to the receiver
+	nWrittenBytes, err := io.Copy(c.serverConn, c.receiverConn)
+	if err != nil {
+		log.Printf("[client] Cannot forward data from the Skyproxy server to the Receiver: %s", err)
+		return
+	}
+	log.Printf("[client] Skyproxy server -> Receiver: %d bytes", nWrittenBytes)
 }
