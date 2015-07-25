@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -119,22 +120,25 @@ func (s *Server) ListenForHTTP() error {
 			continue
 		}
 		log.Printf("HTTP Client for host: %s", httpClient.HTTPHost)
-		//FIXME: send the http header buffer to the receiver
 		go s.forwardTraffic(httpClient)
 	}
 }
 
 // forwardTraffic reads data from HTTP cients and send it to receivers (and vice versa)
 func (s *Server) forwardTraffic(httpClient *HTTPClient) {
+	var wg sync.WaitGroup
+	defer httpClient.Close()
 	receiverList, exists := s.receiverList[httpClient.HTTPHost]
 	if !exists {
-		log.Printf("[server] There is no Receiver register for the HTTP host: %s", httpClient.HTTPHost)
+		log.Printf("[server] There is no Receiver registered for the HTTP host: %s", httpClient.HTTPHost)
 		return
 	}
 	// Pick a receiver randomly
 	idx := random.Intn(len(receiverList))
 	receiver := receiverList[idx]
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		// Sending traffic back from the Receiver to the HTTP Client
 		nWrittenBytes, err := io.Copy(receiver, httpClient)
 		if err != nil {
@@ -150,4 +154,5 @@ func (s *Server) forwardTraffic(httpClient *HTTPClient) {
 		return
 	}
 	log.Printf("[server] HTTP Client -> Receiver: %d bytes", nWrittenBytes)
+	wg.Wait()
 }

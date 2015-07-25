@@ -82,3 +82,8 @@ func (c *HTTPClient) Read(buf []byte) (int, error) {
 func (c *HTTPClient) Write(buf []byte) (int, error) {
 	return c.conn.Write(buf)
 }
+
+// Close closes the socket
+func (c *HTTPClient) Close() {
+	c.conn.Close()
+}
