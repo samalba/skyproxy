@@ -77,13 +77,9 @@ func runClient(c *cli.Context) {
 	httpHost := c.String("http-host")
 	log.Printf("Connecting to server: %s", server)
 	log.Printf("Registering HTTP Host: %s", httpHost)
-	client := &client.Client{HTTPHost: httpHost}
+	client := &client.Client{HTTPHost: httpHost, ReceiverAddr: receiver}
 	if err := client.Connect(server); err != nil {
 		log.Fatalf("Cannot connect: %s", err)
-	}
-	log.Printf("Connecting to receiver: %s", receiver)
-	if err := client.ConnectHTTPReceiver(receiver); err != nil {
-		log.Fatalf("Cannot connect to receiver: %s", err)
 	}
 	log.Printf("Connection established, forwarding the traffic to: %s", receiver)
 	client.Forward()
