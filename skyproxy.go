@@ -77,6 +77,7 @@ func runClient(c *cli.Context) {
 	httpHost := c.String("http-host")
 	log.Printf("Connecting to server: %s", server)
 	log.Printf("Registering HTTP Host: %s", httpHost)
+	log.SetPrefix("[client] ")
 	client := &client.Client{HTTPHost: httpHost, ReceiverAddr: receiver}
 	if err := client.Connect(server); err != nil {
 		log.Fatalf("Cannot connect: %s", err)
@@ -86,6 +87,7 @@ func runClient(c *cli.Context) {
 }
 
 func runServer(c *cli.Context) {
+	log.SetPrefix("[server] ")
 	serv := server.NewServer(c.String("address"), c.String("http-address"))
 	// Listen for skyproxy clients
 	go func() {
