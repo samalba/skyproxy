@@ -33,13 +33,8 @@ func globalCommands() []cli.Command {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "address",
-					Value: "0.0.0.0:4242",
-					Usage: "Address to listen on (for receiving skyproxy clients)",
-				},
-				cli.StringFlag{
-					Name:  "http-address",
 					Value: "0.0.0.0:80",
-					Usage: "Address to listen on (for receiving HTTP traffic)",
+					Usage: "Address to listen on",
 				},
 			},
 		},
@@ -78,25 +73,20 @@ func runClient(c *cli.Context) {
 	log.Printf("Connecting to server: %s", server)
 	log.Printf("Registering HTTP Host: %s", httpHost)
 	log.SetPrefix("[client] ")
-	client := &client.Client{HTTPHost: httpHost, ReceiverAddr: receiver}
+	client := &client.Client{HTTPHost: httpHost}
 	if err := client.Connect(server); err != nil {
 		log.Fatalf("Cannot connect: %s", err)
 	}
 	log.Printf("Connection established, forwarding the traffic to: %s", receiver)
-	client.Forward()
+	client.Tunnel(receiver)
 }
 
 func runServer(c *cli.Context) {
+	address := c.String("http-address")
 	log.SetPrefix("[server] ")
-	serv := server.NewServer(c.String("address"), c.String("http-address"))
-	// Listen for skyproxy clients
-	go func() {
-		if err := serv.ListenForReceivers(); err != nil {
-			log.Fatal(err)
-		}
-	}()
-	// Listen for HTTP traffic
-	if err := serv.ListenForHTTP(); err != nil {
+	serv := server.NewServer()
+	// Start the HTTP server
+	if err := serv.StartHTTPServer(address); err != nil {
 		log.Fatal(err)
 	}
 }

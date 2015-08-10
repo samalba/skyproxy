@@ -1,12 +1,10 @@
 package server
 
 import (
-	"http"
-	"io"
 	"log"
 	"math/rand"
 	"net"
-	"sync"
+	"net/http"
 	"time"
 
 	"github.com/samalba/skyproxy/utils"
@@ -21,20 +19,18 @@ type Client struct {
 
 // Server context
 type Server struct {
-	ClientsHTTPAddress string
-	PublicHTTPAddress  string
-	clientList         map[string][]*Client
-	numClients         int
-	clientIn           chan *Client
-	clientOut          chan *Client
-	random             *rand.Rand
+	clientList map[string][]*Client
+	numClients int
+	clientIn   chan *Client
+	clientOut  chan *Client
+	random     *rand.Rand
 }
 
 // NewServer is usually called once to create the server context
-func NewServer(address, httpAddress string) *Server {
-	s := &Server{ListenAddress: address, ListenHTTPAddress: httpAddress}
+func NewServer() *Server {
+	s := &Server{}
 	s.clientList = make(map[string][]*Client)
-	s.numReceivers = 0
+	s.numClients = 0
 	s.clientIn = make(chan *Client, 10)
 	s.clientOut = make(chan *Client, 10)
 	// init rand seed
@@ -82,10 +78,9 @@ func (s *Server) manageClientList() {
 	}
 }
 
-// ListenForClients is the main loop for accepting new clients
-func (s *Server) ListenForClients() error {
-	// httpHandler handles request coming from public HTTP traffic
-	httpHandler := func(w http.ResponseWriter, r *http.Request) {
+// createClientsHTTPHandler returns the handler that manages Skyproxy Clients
+func createClientsHTTPHandler(s *Server) func(http.ResponseWriter, *http.Request) {
+	h := func(w http.ResponseWriter, r *http.Request) {
 		hj, ok := w.(http.Hijacker)
 		if !ok {
 			http.Error(w, "Hijacking not supported", http.StatusInternalServerError)
@@ -103,16 +98,12 @@ func (s *Server) ListenForClients() error {
 		}
 		s.clientIn <- &Client{Conn: conn, HTTPHost: host}
 	}
-	// Inits the http server
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", httpHandler)
-	http.ListenAndServe(s.ClientsHTTPAddress, mux)
+	return h
 }
 
-// ListenForHTTP listens for HTTP traffic
-func (s *Server) ListenForHTTP() error {
-	// httpHandler handles request coming from public HTTP traffic
-	httpHandler := func(w http.ResponseWriter, r *http.Request) {
+// createPublicHTTPHandler returns the handler that manages the Public HTTP traffic
+func createPublicHTTPHandler(s *Server) func(http.ResponseWriter, *http.Request) {
+	h := func(w http.ResponseWriter, r *http.Request) {
 		hj, ok := w.(http.Hijacker)
 		if !ok {
 			http.Error(w, "Hijacking not supported", http.StatusInternalServerError)
@@ -123,7 +114,7 @@ func (s *Server) ListenForHTTP() error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		clientList, exists := s.clientList[httpClient.HTTPHost]
+		clientList, exists := s.clientList[r.Host]
 		if !exists {
 			http.Error(w, "There is no Receiver registered for this Host", http.StatusInternalServerError)
 			return
@@ -134,8 +125,13 @@ func (s *Server) ListenForHTTP() error {
 		utils.TunnelConn(conn, client.Conn, false)
 		// FIXME: close connections and handle errors
 	}
-	// Inits the http Server
+	return h
+}
+
+// StartHTTPServer creates an HTTP server
+func (s *Server) StartHTTPServer(address string) error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", httpHandler)
-	http.ListenAndServe(s.PublicHTTPAddress, mux)
+	mux.HandleFunc("/_skyproxy/register", createClientsHTTPHandler(s))
+	mux.HandleFunc("/", createPublicHTTPHandler(s))
+	return http.ListenAndServe(address, mux)
 }

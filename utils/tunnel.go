@@ -4,8 +4,11 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 )
 
+// TunnelConn is a low level function which takes two connections and tunnel
+// one to the other. It also handles the traffic back.
 func TunnelConn(from, to net.Conn, closeConns bool) {
 	if closeConns {
 		defer from.Close()
