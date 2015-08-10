@@ -28,7 +28,7 @@ func globalCommands() []cli.Command {
 			Usage:  "Start a server",
 			Action: runServer,
 			Before: func(c *cli.Context) error {
-				return validateArgs(c, []string{"address", "http-address"})
+				return validateArgs(c, []string{"address"})
 			},
 			Flags: []cli.Flag{
 				cli.StringFlag{
@@ -82,7 +82,7 @@ func runClient(c *cli.Context) {
 }
 
 func runServer(c *cli.Context) {
-	address := c.String("http-address")
+	address := c.String("address")
 	log.SetPrefix("[server] ")
 	serv := server.NewServer()
 	// Start the HTTP server
