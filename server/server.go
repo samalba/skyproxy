@@ -84,19 +84,21 @@ func createClientsHTTPHandler(s *Server) func(http.ResponseWriter, *http.Request
 		hj, ok := w.(http.Hijacker)
 		if !ok {
 			http.Error(w, "Hijacking not supported", http.StatusInternalServerError)
+			log.Println("Cannot register new client: hijacking not supported")
 			return
 		}
 		conn, _, err := hj.Hijack()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			log.Printf("Cannot register new client: %s", err)
 			return
 		}
-		host := r.Header.Get("Host")
-		if host == "" {
+		if r.Host == "" {
 			http.Error(w, "No Host header specified", http.StatusBadRequest)
+			log.Println("Cannot register new client: no host header specified")
 			return
 		}
-		s.clientIn <- &Client{Conn: conn, HTTPHost: host}
+		s.clientIn <- &Client{Conn: conn, HTTPHost: r.Host}
 	}
 	return h
 }
@@ -107,16 +109,19 @@ func createPublicHTTPHandler(s *Server) func(http.ResponseWriter, *http.Request)
 		hj, ok := w.(http.Hijacker)
 		if !ok {
 			http.Error(w, "Hijacking not supported", http.StatusInternalServerError)
+			log.Printf("Cannot handle request for Host %s: hijacking not supported", r.Host)
 			return
 		}
 		conn, _, err := hj.Hijack()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			log.Printf("Cannot handle request for Host %s: %s", r.Host, err)
 			return
 		}
 		clientList, exists := s.clientList[r.Host]
 		if !exists {
 			http.Error(w, "There is no Receiver registered for this Host", http.StatusInternalServerError)
+			log.Printf("Cannot handle request for Host %s: no receiver registed for this Host", r.Host)
 			return
 		}
 		// Pick a client randomly
@@ -130,6 +135,9 @@ func createPublicHTTPHandler(s *Server) func(http.ResponseWriter, *http.Request)
 
 // StartHTTPServer creates an HTTP server
 func (s *Server) StartHTTPServer(address string) error {
+	// Start the routine to manage the clients (in & out)
+	go s.manageClientList()
+	// Start the HTTP server
 	mux := http.NewServeMux()
 	mux.HandleFunc("/_skyproxy/register", createClientsHTTPHandler(s))
 	mux.HandleFunc("/", createPublicHTTPHandler(s))

@@ -15,7 +15,7 @@ func TunnelConn(from, to net.Conn, closeConns bool) {
 		defer to.Close()
 	}
 	var wg sync.WaitGroup
-	wg.Add(1)
+	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		// Receive traffic back
@@ -26,12 +26,15 @@ func TunnelConn(from, to net.Conn, closeConns bool) {
 		}
 		log.Printf("TunnelConn: %d bytes received", nWrittenBytes)
 	}()
-	// Sending traffic to the tunnel
-	nWrittenBytes, err := io.Copy(from, to)
-	if err != nil {
-		log.Printf("TunnelConn: cannot send traffic %s", err)
-		return
-	}
-	log.Printf("TunnelConn: %d bytes sent", nWrittenBytes)
+	go func() {
+		defer wg.Done()
+		// Sending traffic to the tunnel
+		nWrittenBytes, err := io.Copy(from, to)
+		if err != nil {
+			log.Printf("TunnelConn: cannot send traffic %s", err)
+			return
+		}
+		log.Printf("TunnelConn: %d bytes sent", nWrittenBytes)
+	}()
 	wg.Wait()
 }

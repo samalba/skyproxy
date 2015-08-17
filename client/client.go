@@ -27,7 +27,7 @@ func (c *Client) Connect(address string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Add("Host", c.HTTPHost)
+	req.Host = c.HTTPHost
 	req.Header.Add("X-Skyproxy-Client-Version", "0.1")
 	err = httpClient.Write(req)
 	if err != nil {

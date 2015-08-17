@@ -70,9 +70,9 @@ func runClient(c *cli.Context) {
 	server := c.String("server")
 	receiver := c.String("receiver")
 	httpHost := c.String("http-host")
+	log.SetPrefix("[client] ")
 	log.Printf("Connecting to server: %s", server)
 	log.Printf("Registering HTTP Host: %s", httpHost)
-	log.SetPrefix("[client] ")
 	client := &client.Client{HTTPHost: httpHost}
 	if err := client.Connect(server); err != nil {
 		log.Fatalf("Cannot connect: %s", err)
@@ -86,6 +86,7 @@ func runServer(c *cli.Context) {
 	log.SetPrefix("[server] ")
 	serv := server.NewServer()
 	// Start the HTTP server
+	log.Printf("Starting server at %s", address)
 	if err := serv.StartHTTPServer(address); err != nil {
 		log.Fatal(err)
 	}
