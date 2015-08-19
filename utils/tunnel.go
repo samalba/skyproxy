@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 )
 
 // TunnelConn is a low level function which takes two connections and tunnel
@@ -14,27 +15,30 @@ func TunnelConn(from, to net.Conn, closeConns bool) {
 		defer from.Close()
 		defer to.Close()
 	}
+	id := time.Now().Nanosecond()
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		// Receive traffic back
-		nWrittenBytes, err := io.Copy(to, from)
+		log.Printf("TunnelConn(%d): from <- to", id)
+		nWrittenBytes, err := io.Copy(from, to)
 		if err != nil {
-			log.Printf("TunnelConn: cannot get traffic back: %s", err)
+			log.Printf("TunnelConn(%d): cannot get traffic back: %s", id, err)
 			return
 		}
-		log.Printf("TunnelConn: %d bytes received", nWrittenBytes)
+		log.Printf("TunnelConn(%d): %d bytes received", id, nWrittenBytes)
 	}()
 	go func() {
 		defer wg.Done()
 		// Sending traffic to the tunnel
-		nWrittenBytes, err := io.Copy(from, to)
+		log.Printf("TunnelConn(%d): from -> to", id)
+		nWrittenBytes, err := io.Copy(to, from)
 		if err != nil {
-			log.Printf("TunnelConn: cannot send traffic %s", err)
+			log.Printf("TunnelConn(%d): cannot send traffic %s", id, err)
 			return
 		}
-		log.Printf("TunnelConn: %d bytes sent", nWrittenBytes)
+		log.Printf("TunnelConn(%d): %d bytes sent", id, nWrittenBytes)
 	}()
 	wg.Wait()
 }
