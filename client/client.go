@@ -7,6 +7,7 @@ import (
 	"net/http/httputil"
 	"time"
 
+	"github.com/hashicorp/yamux"
 	"github.com/samalba/skyproxy/utils"
 )
 
@@ -44,17 +45,23 @@ func (c *Client) Connect(address string) error {
 
 // Tunnel listens to the Server conn and forward all request to the Receiver
 func (c *Client) Tunnel(address string) {
-	//FIXME(samalba): handle multi-plexing: concurrent requests coming in. Right
-	// now they would be mixed together. Each request should be de-multi-plexed
-	// in a single socket opened against the receiver.
+	session, err := yamux.Server(c.serverConn, nil)
+	if err != nil {
+		log.Printf("Cannot init Yamux Server session: %s", err)
+		return
+	}
 	for {
+		stream, err := session.Accept()
+		if err != nil {
+			log.Printf("Cannot accept a new Yamux stream: %s", err)
+			return
+		}
 		conn, err := net.Dial("tcp", address)
 		if err != nil {
 			log.Printf("Cannot connect to receiver: %s", err)
-			time.Sleep(3 * time.Second)
+			stream.Close()
 			continue
 		}
-		utils.TunnelConn(c.serverConn, conn, false)
-		conn.Close()
+		utils.TunnelConn(stream, conn, true)
 	}
 }

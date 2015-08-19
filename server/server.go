@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/hashicorp/yamux"
 	"github.com/samalba/skyproxy/utils"
 )
 
@@ -14,6 +15,7 @@ import (
 // each struct represents a skyproxy Client (with the HTTPHost it registered)
 type Client struct {
 	Conn     net.Conn
+	Session  *yamux.Session
 	HTTPHost string
 }
 
@@ -98,7 +100,13 @@ func createClientsHTTPHandler(s *Server) func(http.ResponseWriter, *http.Request
 			log.Println("Cannot register new client: no host header specified")
 			return
 		}
-		s.clientIn <- &Client{Conn: conn, HTTPHost: r.Host}
+		session, err := yamux.Client(conn, nil)
+		if err != nil {
+			http.Error(w, "Cannot init Yamux Client session", http.StatusInternalServerError)
+			log.Printf("Cannot init Yamux Client session: %s", err)
+			return
+		}
+		s.clientIn <- &Client{Conn: conn, Session: session, HTTPHost: r.Host}
 	}
 	return h
 }
@@ -127,10 +135,17 @@ func createPublicHTTPHandler(s *Server) func(http.ResponseWriter, *http.Request)
 		// Pick a client randomly
 		idx := s.random.Intn(len(clientList))
 		client := clientList[idx]
+		// Open a new Yamux stream
+		stream, err := client.Session.OpenStream()
+		if err != nil {
+			http.Error(w, "Cannot open a new Yamux stream on the Client session", http.StatusInternalServerError)
+			log.Printf("Cannot open a new Yamux stream on the Client session: %s", err)
+			return
+		}
 		// Send the initial request to the client
-		r.Write(client.Conn)
-		utils.TunnelConn(conn, client.Conn, false)
-		// FIXME: close connections and handle errors
+		r.Write(stream)
+		utils.TunnelConn(conn, stream, true)
+		//FIXME: The tunnel is blocked on receiving traffic back.
 	}
 	return h
 }
