@@ -127,6 +127,8 @@ func createPublicHTTPHandler(s *Server) func(http.ResponseWriter, *http.Request)
 		// Pick a client randomly
 		idx := s.random.Intn(len(clientList))
 		client := clientList[idx]
+		// Send the initial request to the client
+		r.Write(client.Conn)
 		utils.TunnelConn(conn, client.Conn, false)
 		// FIXME: close connections and handle errors
 	}
