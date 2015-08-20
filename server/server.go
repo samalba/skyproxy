@@ -145,7 +145,6 @@ func createPublicHTTPHandler(s *Server) func(http.ResponseWriter, *http.Request)
 		// Send the initial request to the client
 		r.Write(stream)
 		utils.TunnelConn(conn, stream, true)
-		//FIXME: The tunnel is blocked on receiving traffic back.
 	}
 	return h
 }
