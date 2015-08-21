@@ -6,6 +6,10 @@
 			"ImportPath": "github.com/codegangsta/cli",
 			"Comment": "1.2.0-115-g616b730",
 			"Rev": "616b730509ef3f11384d159cc52545639103ea86"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/yamux",
+			"Rev": "4036a347b61745876b7e77dd50342347934b00bb"
 		}
 	]
 }
