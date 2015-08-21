@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"net"
@@ -64,8 +65,11 @@ func (s *Server) manageClientList() {
 				for i, c := range l {
 					if c == client {
 						// Removing client from the list
+						defer c.Session.Close()
+						defer c.Conn.Close()
 						s.clientList[host] = append(l[:i], l[i+1:]...)
 						log.Printf("Client unregistered for HTTP host: %s", host)
+						s.numClients--
 						break
 					}
 				}
@@ -74,7 +78,6 @@ func (s *Server) manageClientList() {
 					log.Printf("Removed HTTP host: %s", host)
 				}
 			}
-			s.numClients--
 		}
 		log.Printf("%d clients connected", s.numClients)
 	}
@@ -111,9 +114,39 @@ func createClientsHTTPHandler(s *Server) func(http.ResponseWriter, *http.Request
 	return h
 }
 
+func (s *Server) pickRandomClientStream(host string) (*yamux.Stream, error) {
+	for retry := 0; retry < 5; retry++ {
+		clientList, exists := s.clientList[host]
+		if !exists {
+			return nil, fmt.Errorf("Cannot handle request for Host %s: no Client registed for this Host", host)
+		}
+		// Pick a client randomly
+		idx := s.random.Intn(len(clientList))
+		client := clientList[idx]
+		stream, err := client.Session.OpenStream()
+		if err != nil {
+			log.Printf("Cannot open a new Yamux stream on the Client session: %s", err)
+			s.clientOut <- client
+			continue
+		}
+		return stream, nil
+	}
+	return nil, fmt.Errorf("Cannot find a registered Client with an active connection")
+}
+
 // createPublicHTTPHandler returns the handler that manages the Public HTTP traffic
 func createPublicHTTPHandler(s *Server) func(http.ResponseWriter, *http.Request) {
 	h := func(w http.ResponseWriter, r *http.Request) {
+		// Pick a random client and open a new Yamux stream
+		stream, err := s.pickRandomClientStream(r.Host)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			log.Printf("Cannot find a valid registered Client: %s", err)
+			return
+		}
+		defer stream.Close()
+		log.Printf("Found a valid client registered for Host %s", r.Host)
+		// Got a valid client, hijack the connection
 		hj, ok := w.(http.Hijacker)
 		if !ok {
 			http.Error(w, "Hijacking not supported", http.StatusInternalServerError)
@@ -124,22 +157,6 @@ func createPublicHTTPHandler(s *Server) func(http.ResponseWriter, *http.Request)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			log.Printf("Cannot handle request for Host %s: %s", r.Host, err)
-			return
-		}
-		clientList, exists := s.clientList[r.Host]
-		if !exists {
-			http.Error(w, "There is no Receiver registered for this Host", http.StatusInternalServerError)
-			log.Printf("Cannot handle request for Host %s: no receiver registed for this Host", r.Host)
-			return
-		}
-		// Pick a client randomly
-		idx := s.random.Intn(len(clientList))
-		client := clientList[idx]
-		// Open a new Yamux stream
-		stream, err := client.Session.OpenStream()
-		if err != nil {
-			http.Error(w, "Cannot open a new Yamux stream on the Client session", http.StatusInternalServerError)
-			log.Printf("Cannot open a new Yamux stream on the Client session: %s", err)
 			return
 		}
 		// Send the initial request to the client

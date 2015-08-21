@@ -53,7 +53,7 @@ func (c *Client) Tunnel(address string) {
 	for {
 		stream, err := session.Accept()
 		if err != nil {
-			log.Printf("Cannot accept a new Yamux stream: %s", err)
+			log.Printf("Cannot accept a new Yamux stream: %s. The server might have stopped responding.", err)
 			return
 		}
 		conn, err := net.Dial("tcp", address)
