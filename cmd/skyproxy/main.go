@@ -7,6 +7,7 @@ import (
 
 	"github.com/samalba/skyproxy/client"
 	"github.com/samalba/skyproxy/server"
+	"github.com/samalba/skyproxy/version"
 
 	"github.com/codegangsta/cli"
 )
@@ -94,8 +95,9 @@ func runServer(c *cli.Context) {
 
 func main() {
 	app := cli.NewApp()
-	app.Name = "skyproxy"
-	app.Version = "0.1.0"
+	app.Name = version.Name
+	app.Version = version.Version
+
 	app.Usage = "Reverse tunnel HTTP proxy"
 	app.Commands = globalCommands()
 	app.Run(os.Args)
