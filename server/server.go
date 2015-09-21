@@ -29,6 +29,12 @@ type Server struct {
 	random     *rand.Rand
 }
 
+// TLSConfig is tused by the HTTP server
+type TLSConfig struct {
+	CertFile string
+	KeyFile  string
+}
+
 // NewServer is usually called once to create the server context
 func NewServer() *Server {
 	s := &Server{}
@@ -166,13 +172,16 @@ func createPublicHTTPHandler(s *Server) func(http.ResponseWriter, *http.Request)
 	return h
 }
 
-// StartHTTPServer creates an HTTP server
-func (s *Server) StartHTTPServer(address string) error {
+// StartServer creates an HTTP(s) server
+func (s *Server) StartServer(address string, tlsConfig *TLSConfig) error {
 	// Start the routine to manage the clients (in & out)
 	go s.manageClientList()
 	// Start the HTTP server
 	mux := http.NewServeMux()
 	mux.HandleFunc("/_skyproxy/register", createClientsHTTPHandler(s))
 	mux.HandleFunc("/", createPublicHTTPHandler(s))
+	if tlsConfig != nil {
+		return http.ListenAndServeTLS(address, tlsConfig.CertFile, tlsConfig.KeyFile, mux)
+	}
 	return http.ListenAndServe(address, mux)
 }

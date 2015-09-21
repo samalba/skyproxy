@@ -36,6 +36,16 @@ func globalCommands() []cli.Command {
 					Value: "0.0.0.0:80",
 					Usage: "Address to listen on",
 				},
+				cli.StringFlag{
+					Name:  "tls-cert",
+					Value: "",
+					Usage: "TLS Certificate file (disabled by default)",
+				},
+				cli.StringFlag{
+					Name:  "tls-key",
+					Value: "",
+					Usage: "TLS Key file (disabled by default)",
+				},
 			},
 		},
 		{
@@ -83,11 +93,25 @@ func runClient(c *cli.Context) {
 
 func runServer(c *cli.Context) {
 	address := c.String("address")
+	tlsCert := c.String("tls-cert")
+	tlsKey := c.String("tls-key")
 	log.SetPrefix("[server] ")
 	serv := server.NewServer()
+	if tlsCert != "" && tlsKey != "" {
+		tlsConfig := &server.TLSConfig{
+			CertFile: tlsCert,
+			KeyFile:  tlsKey,
+		}
+		// Start the HTTPS server
+		log.Printf("Starting HTTPS server at %s", address)
+		if err := serv.StartServer(address, tlsConfig); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	// Start the HTTP server
 	log.Printf("Starting server at %s", address)
-	if err := serv.StartHTTPServer(address); err != nil {
+	if err := serv.StartServer(address, nil); err != nil {
 		log.Fatal(err)
 	}
 }
