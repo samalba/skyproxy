@@ -71,6 +71,11 @@ func globalCommands() []cli.Command {
 					Value: "",
 					Usage: "HTTP host to announce (ex: my.website.tld)",
 				},
+				cli.StringFlag{
+					Name:  "tls-ca",
+					Value: "",
+					Usage: "TLS CA Certificate file (disabled by default)",
+				},
 			},
 		},
 	}
@@ -80,15 +85,25 @@ func runClient(c *cli.Context) {
 	server := c.String("server")
 	receiver := c.String("receiver")
 	httpHost := c.String("http-host")
+	tlsCA := c.String("tls-ca")
 	log.SetPrefix("[client] ")
 	log.Printf("Connecting to server: %s", server)
 	log.Printf("Registering HTTP Host: %s", httpHost)
-	client := &client.Client{HTTPHost: httpHost}
-	if err := client.Connect(server); err != nil {
-		log.Fatalf("Cannot connect: %s", err)
+	skyClient := &client.Client{HTTPHost: httpHost}
+	if tlsCA != "" {
+		tlsConfig := &client.TLSConfig{
+			CAFile: tlsCA,
+		}
+		if err := skyClient.Connect(server, tlsConfig); err != nil {
+			log.Fatalf("Cannot connect: %s", err)
+		}
+	} else {
+		if err := skyClient.Connect(server, nil); err != nil {
+			log.Fatalf("Cannot connect: %s", err)
+		}
 	}
 	log.Printf("Connection established, forwarding the traffic to: %s", receiver)
-	client.Tunnel(receiver)
+	skyClient.Tunnel(receiver)
 }
 
 func runServer(c *cli.Context) {
@@ -110,7 +125,7 @@ func runServer(c *cli.Context) {
 		return
 	}
 	// Start the HTTP server
-	log.Printf("Starting server at %s", address)
+	log.Printf("Starting HTTP server at %s", address)
 	if err := serv.StartServer(address, nil); err != nil {
 		log.Fatal(err)
 	}

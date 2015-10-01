@@ -29,7 +29,7 @@ type Server struct {
 	random     *rand.Rand
 }
 
-// TLSConfig is tused by the HTTP server
+// TLSConfig is used by the HTTP server
 type TLSConfig struct {
 	CertFile string
 	KeyFile  string
