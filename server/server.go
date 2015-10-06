@@ -173,13 +173,17 @@ func createPublicHTTPHandler(s *Server) func(http.ResponseWriter, *http.Request)
 }
 
 // StartServer creates an HTTP(s) server
-func (s *Server) StartServer(address string, tlsConfig *TLSConfig) error {
-	// Start the routine to manage the clients (in & out)
-	go s.manageClientList()
-	// Start the HTTP server
+func (s *Server) StartServer(address string, clientsManager bool, tlsConfig *TLSConfig) error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/_skyproxy/register", createClientsHTTPHandler(s))
-	mux.HandleFunc("/", createPublicHTTPHandler(s))
+	if clientsManager == true {
+		// Start the routine to manage the clients (in & out)
+		go s.manageClientList()
+		// Register the route to manage the SkyProxy cients
+		mux.HandleFunc("/_skyproxy/register", createClientsHTTPHandler(s))
+	} else {
+		// Register the route to handle the public HTTP(s) traffic
+		mux.HandleFunc("/", createPublicHTTPHandler(s))
+	}
 	if tlsConfig != nil {
 		return http.ListenAndServeTLS(address, tlsConfig.CertFile, tlsConfig.KeyFile, mux)
 	}

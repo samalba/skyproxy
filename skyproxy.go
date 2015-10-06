@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/samalba/skyproxy/client"
 	"github.com/samalba/skyproxy/server"
@@ -11,12 +12,30 @@ import (
 	"github.com/codegangsta/cli"
 )
 
-func validateArgs(c *cli.Context, args []string) error {
+const (
+	cliOneArg        = iota
+	cliAllArgs       = iota
+	cliAllIfFirstArg = iota
+)
+
+func requireArgs(c *cli.Context, option int, args []string) error {
 	for _, arg := range args {
-		if c.String(arg) == "" {
-			fmt.Printf("Missing argument: --%s\n", arg)
+		if option == cliAllArgs && c.String(arg) == "" {
+			fmt.Printf("You need to specify all the following arguments: %s\n", arg)
 			os.Exit(1)
 		}
+		if option == cliOneArg && c.String(arg) != "" {
+			return nil
+		}
+		if option == cliAllIfFirstArg && c.String(args[0]) != "" && c.String(arg) == "" {
+
+			fmt.Printf("After setting the argument \"%s\", you need to specify all the following arguments: %s\n", args[0], args)
+			os.Exit(1)
+		}
+	}
+	if option == cliOneArg {
+		fmt.Printf("You need to specify one of the following argument: %s\n", args)
+		os.Exit(1)
 	}
 	return nil
 }
@@ -28,23 +47,57 @@ func globalCommands() []cli.Command {
 			Usage:  "Start a server",
 			Action: runServer,
 			Before: func(c *cli.Context) error {
-				return validateArgs(c, []string{"address"})
+				if err := requireArgs(c, cliOneArg, []string{"proxy-http", "proxy-https"}); err != nil {
+					return err
+				}
+				if err := requireArgs(c, cliAllIfFirstArg, []string{"proxy-https", "proxy-tls-cert", "proxy-tls-key"}); err != nil {
+					return err
+				}
+				if err := requireArgs(c, cliAllIfFirstArg, []string{"clients-https", "clients-tls-cert", "clients-tls-key"}); err != nil {
+					return err
+				}
+				return nil
 			},
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:  "address",
-					Value: "0.0.0.0:80",
-					Usage: "Address to listen on",
+					Name:  "proxy-http",
+					Value: "",
+					Usage: "HTTP proxy address to listen on (ex: \":80\")",
 				},
 				cli.StringFlag{
-					Name:  "tls-cert",
+					Name:  "proxy-https",
 					Value: "",
-					Usage: "TLS Certificate file (disabled by default)",
+					Usage: "HTTPs proxy address to listen on (ex: \":443\")",
 				},
 				cli.StringFlag{
-					Name:  "tls-key",
+					Name:  "proxy-tls-cert",
 					Value: "",
-					Usage: "TLS Key file (disabled by default)",
+					Usage: "TLS Certificate file (use with --listen-https)",
+				},
+				cli.StringFlag{
+					Name:  "proxy-tls-key",
+					Value: "",
+					Usage: "TLS Key file (use with --listen-https)",
+				},
+				cli.StringFlag{
+					Name:  "clients-http",
+					Value: "",
+					Usage: "HTTP address to listen to SkyProxy clients (ex: \":80\")",
+				},
+				cli.StringFlag{
+					Name:  "clients-https",
+					Value: "",
+					Usage: "HTTPs address to listen to SkyProxy clients (ex: \":443\")",
+				},
+				cli.StringFlag{
+					Name:  "clients-tls-cert",
+					Value: "",
+					Usage: "TLS Certificate file (use with --clients-https)",
+				},
+				cli.StringFlag{
+					Name:  "clients-tls-key",
+					Value: "",
+					Usage: "TLS Key file (use with --clients-https)",
 				},
 			},
 		},
@@ -53,7 +106,7 @@ func globalCommands() []cli.Command {
 			Usage:  "Connects to a local receiver",
 			Action: runClient,
 			Before: func(c *cli.Context) error {
-				return validateArgs(c, []string{"server", "receiver", "http-host"})
+				return requireArgs(c, cliAllArgs, []string{"server", "receiver", "http-host"})
 			},
 			Flags: []cli.Flag{
 				cli.StringFlag{
@@ -107,28 +160,66 @@ func runClient(c *cli.Context) {
 }
 
 func runServer(c *cli.Context) {
-	address := c.String("address")
-	tlsCert := c.String("tls-cert")
-	tlsKey := c.String("tls-key")
+	var wg sync.WaitGroup
+	proxyHTTP := c.String("proxy-http")
+	proxyHTTPS := c.String("proxy-https")
+	proxyTLSCert := c.String("proxy-tls-cert")
+	proxyTLSKey := c.String("proxy-tls-key")
+	clientsHTTP := c.String("clients-http")
+	clientsHTTPS := c.String("clients-https")
+	clientsTLSCert := c.String("clients-tls-cert")
+	clientsTLSKey := c.String("clients-tls-key")
 	log.SetPrefix("[server] ")
 	serv := server.NewServer()
-	if tlsCert != "" && tlsKey != "" {
-		tlsConfig := &server.TLSConfig{
-			CertFile: tlsCert,
-			KeyFile:  tlsKey,
-		}
-		// Start the HTTPS server
-		log.Printf("Starting HTTPS server at %s", address)
-		if err := serv.StartServer(address, tlsConfig); err != nil {
-			log.Fatal(err)
-		}
-		return
+	if proxyHTTPS != "" {
+		go func() {
+			wg.Add(1)
+			tlsConfig := &server.TLSConfig{
+				CertFile: proxyTLSCert,
+				KeyFile:  proxyTLSKey,
+			}
+			// Start the HTTPS proxy server
+			log.Printf("Starting HTTPS proxy server at %s", proxyHTTPS)
+			if err := serv.StartServer(proxyHTTPS, false, tlsConfig); err != nil {
+				log.Fatal(err)
+			}
+		}()
 	}
-	// Start the HTTP server
-	log.Printf("Starting HTTP server at %s", address)
-	if err := serv.StartServer(address, nil); err != nil {
-		log.Fatal(err)
+	if proxyHTTP != "" {
+		go func() {
+			wg.Add(1)
+			// Start the HTTP server
+			log.Printf("Starting HTTP proxy server at %s", proxyHTTP)
+			if err := serv.StartServer(proxyHTTP, false, nil); err != nil {
+				log.Fatal(err)
+			}
+		}()
 	}
+	if clientsHTTPS != "" {
+		go func() {
+			wg.Add(1)
+			tlsConfig := &server.TLSConfig{
+				CertFile: clientsTLSCert,
+				KeyFile:  clientsTLSKey,
+			}
+			// Start the HTTPS proxy server
+			log.Printf("Starting HTTPS proxy server at %s", clientsHTTPS)
+			if err := serv.StartServer(clientsHTTPS, true, tlsConfig); err != nil {
+				log.Fatal(err)
+			}
+		}()
+	}
+	if clientsHTTP != "" {
+		go func() {
+			wg.Add(1)
+			// Start the HTTP server
+			log.Printf("Starting HTTP proxy server at %s", clientsHTTP)
+			if err := serv.StartServer(clientsHTTP, true, nil); err != nil {
+				log.Fatal(err)
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func main() {
