@@ -124,7 +124,7 @@ func (s *Server) pickRandomClientStream(host string) (*yamux.Stream, error) {
 	for retry := 0; retry < 5; retry++ {
 		clientList, exists := s.clientList[host]
 		if !exists {
-			return nil, fmt.Errorf("Cannot handle request for Host %s: no Client registed for this Host", host)
+			return nil, fmt.Errorf("Cannot handle request for Host %s: no Client registered for this Host", host)
 		}
 		// Pick a client randomly
 		idx := s.random.Intn(len(clientList))
