@@ -172,8 +172,8 @@ func runServer(c *cli.Context) {
 	log.SetPrefix("[server] ")
 	serv := server.NewServer()
 	if proxyHTTPS != "" {
+		wg.Add(1)
 		go func() {
-			wg.Add(1)
 			tlsConfig := &server.TLSConfig{
 				CertFile: proxyTLSCert,
 				KeyFile:  proxyTLSKey,
@@ -186,8 +186,8 @@ func runServer(c *cli.Context) {
 		}()
 	}
 	if proxyHTTP != "" {
+		wg.Add(1)
 		go func() {
-			wg.Add(1)
 			// Start the HTTP server
 			log.Printf("Starting HTTP proxy server at %s", proxyHTTP)
 			if err := serv.StartServer(proxyHTTP, false, nil); err != nil {
@@ -196,8 +196,8 @@ func runServer(c *cli.Context) {
 		}()
 	}
 	if clientsHTTPS != "" {
+		wg.Add(1)
 		go func() {
-			wg.Add(1)
 			tlsConfig := &server.TLSConfig{
 				CertFile: clientsTLSCert,
 				KeyFile:  clientsTLSKey,
@@ -210,8 +210,8 @@ func runServer(c *cli.Context) {
 		}()
 	}
 	if clientsHTTP != "" {
+		wg.Add(1)
 		go func() {
-			wg.Add(1)
 			// Start the HTTP server
 			log.Printf("Starting HTTP proxy server at %s", clientsHTTP)
 			if err := serv.StartServer(clientsHTTP, true, nil); err != nil {
