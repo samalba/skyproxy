@@ -13,28 +13,55 @@ import (
 )
 
 const (
-	cliOneArg        = iota
-	cliAllArgs       = iota
+	// Requires one of the arguments
+	cliOneArg = iota
+	// Requires all of the arguments
+	cliAllArgs = iota
+	// Requires all other arguments if the first one is set
 	cliAllIfFirstArg = iota
+	// Requires one of the other arguments if the first one is set
+	cliOneIfFirstArg = iota
 )
 
+// Formats arguments to be displayed nicely in a string
+func formatArgs(args []string) string {
+	ret := ""
+	if len(args) == 0 {
+		return ret
+	}
+	ret += "--"
+	ret += args[0]
+	for _, arg := range args[1:] {
+		ret += ", --"
+		ret += arg
+	}
+	return ret
+}
+
+// Validates arguments count after parsing the command line
 func requireArgs(c *cli.Context, option int, args []string) error {
-	for _, arg := range args {
+	for idx, arg := range args {
 		if option == cliAllArgs && c.String(arg) == "" {
-			fmt.Printf("You need to specify all the following arguments: %s\n", arg)
+			fmt.Printf("You need to specify all the following arguments: %s\n", formatArgs(args))
 			os.Exit(1)
 		}
 		if option == cliOneArg && c.String(arg) != "" {
 			return nil
 		}
 		if option == cliAllIfFirstArg && c.String(args[0]) != "" && c.String(arg) == "" {
-
-			fmt.Printf("After setting the argument \"%s\", you need to specify all the following arguments: %s\n", args[0], args)
+			fmt.Printf("After setting the argument \"--%s\", you need to specify all the following arguments: %s\n", args[0], formatArgs(args[1:]))
 			os.Exit(1)
+		}
+		if idx > 0 && option == cliOneIfFirstArg && c.String(args[0]) != "" && c.String(arg) != "" {
+			return nil
 		}
 	}
 	if option == cliOneArg {
-		fmt.Printf("You need to specify one of the following argument: %s\n", args)
+		fmt.Printf("You need to specify one of the following arguments: %s\n", formatArgs(args))
+		os.Exit(1)
+	}
+	if option == cliOneIfFirstArg && c.String(args[0]) != "" {
+		fmt.Printf("After setting the argument \"--%s\", you need to specify at least one of the following arguments: %s\n", args[0], formatArgs(args[1:]))
 		os.Exit(1)
 	}
 	return nil
@@ -48,6 +75,12 @@ func globalCommands() []cli.Command {
 			Action: runServer,
 			Before: func(c *cli.Context) error {
 				if err := requireArgs(c, cliOneArg, []string{"proxy-http", "proxy-https"}); err != nil {
+					return err
+				}
+				if err := requireArgs(c, cliOneIfFirstArg, []string{"proxy-http", "client-http", "client-https"}); err != nil {
+					return err
+				}
+				if err := requireArgs(c, cliOneIfFirstArg, []string{"proxy-https", "client-http", "client-https"}); err != nil {
 					return err
 				}
 				if err := requireArgs(c, cliAllIfFirstArg, []string{"proxy-https", "proxy-tls-cert", "proxy-tls-key"}); err != nil {
