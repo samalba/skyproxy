@@ -234,7 +234,7 @@ func runServer(c *cli.Context) {
 				KeyFile:  clientsTLSKey,
 			}
 			// Start the HTTPS proxy server
-			log.Printf("Starting HTTPS proxy server at %s", clientsHTTPS)
+			log.Printf("Starting HTTPS clients server at %s", clientsHTTPS)
 			if err := serv.StartServer(clientsHTTPS, true, tlsConfig); err != nil {
 				log.Fatal(err)
 			}
@@ -244,7 +244,7 @@ func runServer(c *cli.Context) {
 		wg.Add(1)
 		go func() {
 			// Start the HTTP server
-			log.Printf("Starting HTTP proxy server at %s", clientsHTTP)
+			log.Printf("Starting HTTP clients server at %s", clientsHTTP)
 			if err := serv.StartServer(clientsHTTP, true, nil); err != nil {
 				log.Fatal(err)
 			}
