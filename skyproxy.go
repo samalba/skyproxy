@@ -29,11 +29,9 @@ func formatArgs(args []string) string {
 	if len(args) == 0 {
 		return ret
 	}
-	ret += "--"
-	ret += args[0]
+	ret += "--" + args[0]
 	for _, arg := range args[1:] {
-		ret += ", --"
-		ret += arg
+		ret += ", --" + arg
 	}
 	return ret
 }
@@ -77,10 +75,10 @@ func globalCommands() []cli.Command {
 				if err := requireArgs(c, cliOneArg, []string{"proxy-http", "proxy-https"}); err != nil {
 					return err
 				}
-				if err := requireArgs(c, cliOneIfFirstArg, []string{"proxy-http", "client-http", "client-https"}); err != nil {
+				if err := requireArgs(c, cliOneIfFirstArg, []string{"proxy-http", "clients-http", "clients-https"}); err != nil {
 					return err
 				}
-				if err := requireArgs(c, cliOneIfFirstArg, []string{"proxy-https", "client-http", "client-https"}); err != nil {
+				if err := requireArgs(c, cliOneIfFirstArg, []string{"proxy-https", "clients-http", "clients-https"}); err != nil {
 					return err
 				}
 				if err := requireArgs(c, cliAllIfFirstArg, []string{"proxy-https", "proxy-tls-cert", "proxy-tls-key"}); err != nil {
